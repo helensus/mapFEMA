@@ -7,29 +7,22 @@ library(rgdal)
 library(geojsonio)
 library(leaflet)
 
-# use data "strawberries" as it is cleaned and reorganized.
-public.new<-read.csv("public.new.csv")
+# use data "public.new2" as it is cleaned and reorganized.
+public.new<-read.csv("public.new2.csv")
+<<<<<<< HEAD
+#summarize with each fip, delete the repetitive lines of states and counties
+display<- public.new %>% group_by(fips,declarationYear) %>% summarise(state=unique(state),county=unique(county),sumObligated=sum(totalObligated), n=n()) %>% rename(GEO_ID = fips)
+=======
 #summarize with each fips, delete the dubricate lines of states and counties
 display<- public.new %>% group_by(fips,declarationYear) %>% summarise(state=unique(state),county=unique(county),sumObligated=sum(totalObligated)) %>% rename(GEO_ID = fips)
 #round the amount with thousands
+>>>>>>> 4cbab44c66c3de32fa5bfd0d54be376c07a7bcd5
 display$sumObligated<- display$sumObligated/1000
 
 ##get ready for mapping 
 #xy:us layer
 xy <- geojsonio::geojson_read("gz_2010_us_050_00_5m.json", what = "sp")
 xy$GEO_ID %<>% substr(start = 10, stop = 14)
-# join the US map data with funding data by fips/GEO-ID
-leafmap <- geo_join(xy, display, by = "GEO_ID", how = "inner")
-#pal function:maps data values "sumObligated" to colors according to a given palette
-pal <- leaflet::colorNumeric(palette = "PuRd", domain = leafmap$sumObligated)
-#add labels
-labels <- sprintf(
-    "%s<br/>%s<br/>%s",
-    leafmap$state,leafmap$county, leafmap$sumObligated) 
-#add popups
-popup<- paste0("<strong>state:</strong>", leafmap$state,"<br>",
-               "<strong>county:</strong>", leafmap$county,"<br>",
-               "<strong>Sum of Obligated Amount:</strong>",round(leafmap$sumObligated,2),"thousand")
 
 
 
@@ -51,13 +44,11 @@ ui <- fluidPage(
                 tabPanel("The fundation amount of the year",
                          
                          fluidRow(
-                             
                              column(4,
-                                    selectInput("declarationYear",
-                                                "Year:",
-                                                c("All",
-                                                  unique(display$declarationYear)))
-                                    ),
+                                    sliderInput("Year1", "Declaration Year: ", min=2009, max=2018, value=c(2009, 2018), sep="")
+                                    
+                             ),
+                             
                              column(4,
                                     selectInput("county",
                                                 "County:",
@@ -72,17 +63,16 @@ ui <- fluidPage(
                          
                          fluidRow(
                              column(4,
-                                    selectInput("declarationYear2",
-                                                "Year:",
-                                                c("All",
-                                                  unique(leafmap$declarationYear)))),
-
-                         ),
+                                    sliderInput("Year2", "Declaration Year: ", min=2009, max=2018, value=c(2009, 2018), sep="")
+                                    
+                             ),
+                            
                          leafletOutput("map")))
                 
             )
         )
     )
+)
 
 
 
@@ -91,22 +81,31 @@ server <- function(input, output) {
     
     output$table1 <- DT::renderDataTable(DT::datatable({
         data <- display
-        if (input$declarationYear != "All") {
-            data <- data[data$declarationYear== input$declarationYear,]
-        }
+        data <- filter(data, declarationYear >=input$Year1[1] & declarationYear<=input$Year1[2])
         if (input$county != "All") {
             data <- data[data$county== input$county,]
         }
-        
+        rename(data,"number of projects" = n)
         data
     }))
     
     output$map <-  renderLeaflet({
+        data<-display
+        data <- filter(data, declarationYear >=input$Year2[1] & declarationYear<=input$Year2[2])
+        
+        leafmap <- geo_join(xy, data, by = "GEO_ID", how = "inner")
+        #pal function:maps data values "sumObligated" to colors according to a given palette
+        pal <- leaflet::colorNumeric(palette = "PuRd", domain = leafmap$sumObligated)
+        #add labels
+        labels <- sprintf(
+            "%s<br/>%s<br/>%s",
+            leafmap$state,leafmap$county, leafmap$sumObligated) 
+        #add popups
+        popup<- paste0("<strong>state:</strong>", leafmap$state,"<br>",
+                       "<strong>county:</strong>", leafmap$county,"<br>",
+                       "<strong>Sum of Obligated Amount:</strong>",round(leafmap$sumObligated,2),"thousand")
         data<-leafmap
-        if (input$declarationYear2 != "All") {
-            data <- data[data$declarationYear== input$declarationYear2,]
-        }
-
+        
         #mapping by leaflet
         leaflet() %>%
             #titles
