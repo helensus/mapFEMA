@@ -9,9 +9,6 @@ library(leaflet)
 
 # use data "public.new2" as it is cleaned and reorganized.
 public.new<-read.csv("public.new2.csv")
-<<<<<<< HEAD
-#summarize with each fip, delete the repetitive lines of states and counties
-display<- public.new %>% group_by(fips,declarationYear) %>% summarise(state=unique(state),county=unique(county),sumObligated=sum(totalObligated), n=n()) %>% rename(GEO_ID = fips)
 =======
 #summarize with each fips, delete the dubricate lines of states and counties
 display<- public.new %>% group_by(fips,declarationYear) %>% summarise(state=unique(state),county=unique(county),sumObligated=sum(totalObligated)) %>% rename(GEO_ID = fips)
@@ -19,7 +16,7 @@ display<- public.new %>% group_by(fips,declarationYear) %>% summarise(state=uniq
 >>>>>>> 4cbab44c66c3de32fa5bfd0d54be376c07a7bcd5
 display$sumObligated<- display$sumObligated/1000
 
-##get ready for mapping 
+##get ready for mapping
 #xy:us layer
 xy <- geojsonio::geojson_read("gz_2010_us_050_00_5m.json", what = "sp")
 xy$GEO_ID %<>% substr(start = 10, stop = 14)
@@ -37,18 +34,18 @@ ui <- fluidPage(
                 'input.dataset === "leafmap"',
             )
         ),
-        
+
         mainPanel(
             tabsetPanel(
                 id = 'dataset',
                 tabPanel("The fundation amount of the year",
-                         
+
                          fluidRow(
                              column(4,
                                     sliderInput("Year1", "Declaration Year: ", min=2009, max=2018, value=c(2009, 2018), sep="")
-                                    
+
                              ),
-                             
+
                              column(4,
                                     selectInput("county",
                                                 "County:",
@@ -56,19 +53,19 @@ ui <- fluidPage(
                                                   unique(display$county)))
                              )
                          ),
- 
+
                          DT::dataTableOutput("table1")),
-                
+
                 tabPanel("Map of fundation for hurricanes",
-                         
+
                          fluidRow(
                              column(4,
                                     sliderInput("Year2", "Declaration Year: ", min=2009, max=2018, value=c(2009, 2018), sep="")
-                                    
+
                              ),
-                            
+
                          leafletOutput("map")))
-                
+
             )
         )
     )
@@ -78,7 +75,7 @@ ui <- fluidPage(
 
 
 server <- function(input, output) {
-    
+
     output$table1 <- DT::renderDataTable(DT::datatable({
         data <- display
         data <- filter(data, declarationYear >=input$Year1[1] & declarationYear<=input$Year1[2])
@@ -88,24 +85,24 @@ server <- function(input, output) {
         rename(data,"number of projects" = n)
         data
     }))
-    
+
     output$map <-  renderLeaflet({
         data<-display
         data <- filter(data, declarationYear >=input$Year2[1] & declarationYear<=input$Year2[2])
-        
+
         leafmap <- geo_join(xy, data, by = "GEO_ID", how = "inner")
         #pal function:maps data values "sumObligated" to colors according to a given palette
         pal <- leaflet::colorNumeric(palette = "PuRd", domain = leafmap$sumObligated)
         #add labels
         labels <- sprintf(
             "%s<br/>%s<br/>%s",
-            leafmap$state,leafmap$county, leafmap$sumObligated) 
+            leafmap$state,leafmap$county, leafmap$sumObligated)
         #add popups
         popup<- paste0("<strong>state:</strong>", leafmap$state,"<br>",
                        "<strong>county:</strong>", leafmap$county,"<br>",
                        "<strong>Sum of Obligated Amount:</strong>",round(leafmap$sumObligated,2),"thousand")
         data<-leafmap
-        
+
         #mapping by leaflet
         leaflet() %>%
             #titles
@@ -113,35 +110,32 @@ server <- function(input, output) {
             addProviderTiles("CartoDB.Positron") %>%
             addProviderTiles(providers$Stamen.TonerLines,
                              options = providerTileOptions(opacity = 0.75)) %>%
-            
+
             setView(-89.275673, 37.098, zoom = 4) %>%
-            addPolygons(data = data, 
-                        fillColor = ~pal(sumObligated), 
+            addPolygons(data = data,
+                        fillColor = ~pal(sumObligated),
                         color = "#BDBDC3",
-                        fillOpacity = 1, 
-                        weight = 1, 
+                        fillOpacity = 1,
+                        weight = 1,
                         smoothFactor = 0.2,
-                        
+
                         popup= popup,
                         popupOptions = popupOptions(
                             style = list("font-weight" = "normal", padding = "3px 8px"),
                             textsize = "15px",
                             direction = "auto")
-                        
+
             ) %>%
-            addLegend(pal = pal, 
-                      values = data$sumObligated, 
-                      position = "bottomright", 
+            addLegend(pal = pal,
+                      values = data$sumObligated,
+                      position = "bottomright",
                       title = paste0("Sum obligated amount(in thousands)<br>"))
-        
-    
-    
+
+
+
     })
 }
 
 
-# Run the application 
+# Run the application
 shinyApp(ui = ui, server = server)
-
-
-
