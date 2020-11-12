@@ -1,0 +1,157 @@
+---
+title: "Hurricane Mapping from FEMA"
+author: "Helen"
+date: "11-10-2020"
+output:
+  revealjs::revealjs_presentation:
+    theme: solarized
+    highlight: pygments
+    css: leaflet-reveal.css
+    center: false
+    transition: slide
+---
+
+
+```{r setup, include=FALSE}
+library(knitr)
+library(lubridate)
+library(stringr)
+library(dplyr)
+library(magrittr)
+library(tigris)
+library(rgdal)
+library(geojsonio)
+library(leaflet)
+library(kableExtra)
+```
+
+## explanations of data
+<font size ="5"> 
+This assignment use the  Public Assistance Funded Projects Details dataset from FEMA.
+</font>
+
+<font size ="4"> 
+The data were <a href="https://www.fema.gov/openfema-data-page/public-assistance-funded-projects-details-v1">stored online</a > and then downloaded as a CSV file.</p >
+</font>
+
+## display the data 
+The table below shows the data heading used for mapping.
+```{r,echo=FALSE}
+public.new<-read.csv("public.new2.csv")
+#summarize with each fips, delete the dubricate lines of states and counties
+display<- public.new %>% group_by(fips) %>%summarise(county=unique(county),state=unique(state), incidentType=unique(incidentType),n=n(), sumObligated=sum(totalObligated)) %>% rename(GEO_ID = fips)
+#round the amount with thousands
+display$sumObligated<- display$sumObligated/1000
+kable(head(display),"html") %>%
+  kable_styling(font_size = 15)
+```
+<font size ="4"> 
+<p align="left">
+-GEO_ID: fips code of the county
+
+-state: state name
+
+-county: county name
+
+-n:numbers of the funded hurricane projects between 2009-2018
+
+-sumObligated: Sum of the federal share of the Public Assistance grant eligible project amount in dollars, plus grantee (State) and sub-grantee (applicant) administrative costs between 2009-2018.
+
+-incidentType: Type of incident:"Hurricane","Severe Storm(s)","Coastal Storm"
+</p>
+</font>
+
+## mappings
+<h4> The map shows the sum of Obligated amount for the hurricane disasters between 2009-2018.</h4>
+```{r, echo=FALSE}
+#get the layer of US map from the ".json" file as xy
+#The data comes from JSON.
+#We’ll use the geojsonio package to load the data from javascrpt into sp objects, which will let us easily manipulate the geographic features, and their properties, in R.
+xy <- geojsonio::geojson_read("gz_2010_us_050_00_5m.json", what = "sp")
+#names(xy)
+#get the string between 10-14 digit of GEO_ID to match the 5-digit string of "fips" 
+xy$GEO_ID %<>% substr(start = 10, stop = 14)
+
+# join the US map data with funding data by fips/GEO-ID
+leafmap <- geo_join(xy, display, by = "GEO_ID", how = "inner")
+
+#pal function:maps data values "sumObligated" to colors according to a given palette
+#pal: colors for the fund amount of hurricanes
+pal <- leaflet::colorNumeric(palette = "Blues", domain = leafmap$sumObligated)
+#paln: colors for the number of hurricanes
+paln<- leaflet::colorNumeric(palette = "Reds", domain = leafmap$n)
+
+
+#add labels
+labels <- sprintf(
+  "%s<br/>%s<br/>%s",
+  leafmap$state,leafmap$county, leafmap$sumObligated) 
+#add popups
+popup<- paste0("<strong>state:</strong>", leafmap$state,"<br>",
+               "<strong>county:</strong>", leafmap$county,"<br>",
+               "<strong>Sum of Obligated Amount:</strong>",round(leafmap$sumObligated,2),"thousand")
+popupn<- paste0("<strong>state:</strong>", leafmap$state,"<br>",
+                "<strong>county:</strong>", leafmap$county,"<br>",
+                "<strong>Number of funded hurricane projects:</strong>",leafmap$n)
+
+#mapping by leaflet
+leaflet() %>%
+  #titles
+  addTiles() %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addProviderTiles(providers$Stamen.TonerLines,
+                   options = providerTileOptions(opacity = 0.75)) %>%
+  
+  setView(-89.275673, 37.098, zoom = 4) %>%
+  addPolygons(data = leafmap, 
+              fillColor = ~pal(sumObligated), 
+              color = "#BDBDC3",
+              fillOpacity = 1, 
+              weight = 1, 
+              smoothFactor = 0.2,
+              
+              popup= popup,
+              popupOptions = popupOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")
+              
+              ) %>%
+  addLegend(pal = pal, 
+            values = leafmap$sumObligated, 
+            position = "bottomright", 
+            title = paste0("Sum obligated amount(in thousands)<br>2009-2018")) 
+```
+
+------
+<h4> The map shows the numbers of hurricanes funded projects between 2009-2018</h4> 
+
+```{r,echo=FALSE}
+leaflet() %>%
+  #titles
+  addTiles() %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addProviderTiles(providers$Stamen.TonerLines,
+                   options = providerTileOptions(opacity = 0.75)) %>%
+  
+  setView(-89.275673, 37.098, zoom = 4) %>%
+  addPolygons(data = leafmap, 
+              fillColor = ~paln(n), 
+              color = "#BDBDC3",
+              fillOpacity = 1, 
+              weight = 1, 
+              smoothFactor = 0.2,
+              
+              popup= popupn,
+              popupOptions = popupOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")
+              
+  ) %>%
+  addLegend(pal = paln, 
+            values = leafmap$n, 
+            position = "bottomright", 
+            title = paste0("Numbers of funded hurricane projects<br>2009-2018"))
+
+```
