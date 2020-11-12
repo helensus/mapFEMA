@@ -9,11 +9,10 @@ library(leaflet)
 
 # use data "public.new2" as it is cleaned and reorganized.
 public.new<-read.csv("public.new2.csv")
-=======
+
 #summarize with each fips, delete the dubricate lines of states and counties
 display<- public.new %>% group_by(fips,declarationYear) %>% summarise(state=unique(state),county=unique(county),sumObligated=sum(totalObligated)) %>% rename(GEO_ID = fips)
 #round the amount with thousands
->>>>>>> 4cbab44c66c3de32fa5bfd0d54be376c07a7bcd5
 display$sumObligated<- display$sumObligated/1000
 
 ##get ready for mapping
