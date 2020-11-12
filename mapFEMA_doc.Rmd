@@ -24,15 +24,16 @@ The data link: https://www.fema.gov/openfema-data-page/public-assistance-funded-
 
 ### Data cleaning
 ```{r}
-#data source: https://www.fema.gov/openfema-data-page/public-assistance-funded-projects-details-v1
+#read data
 public<- read.csv("Public.csv")
 
 #get the year information
 public$obligatedYear <-  year(public$obligatedDate)
 public$declarationYear <-  year(public$declarationDate)
-
-#when the state code is less than 2 width, fill it up with "0", such as "2" to "02"
-#when the county code is less than 2 width, fill it up with "0"
+```
+When the state code is less than 2 width, fill it up with "0", such as "2" to "02".  
+When the county code is less than 2 width, fill it up with "0".
+```{r}
 public$states <- formatC(public$stateNumberCode, width = 2, flag = 0)
 public$countyc <- formatC(public$countyCode, width = 3, flag = 0)
 #combine stateNumberCode and countyCode 
@@ -41,30 +42,26 @@ public$fips<- str_c(public$states, public$countyc)
 public.hurricane <- public %>% filter(incidentType ==c("Hurricane","Severe Storm(s)","Coastal Storm"))
 public.hurricane%<>% filter(declarationYear>=2009 & declarationYear <=2018)
 public.new<-public.hurricane %>% .[-which(.$county == "Statewide"),]
+```
 
-#summarize with each fips, delete the dubricate lines of states and counties
+Summarize with each fips, delete the repeated lines of states and counties
+```{r}
 display<- public.new %>% group_by(fips) %>% summarise(n=n(),state=unique(state),county=unique(county),incidentType=unique(incidentType),sumObligated=sum(totalObligated)) %>% rename(GEO_ID = fips)
 
 #round the amount with thousands
 display$sumObligated<- display$sumObligated/1000
 head(display)
 ```
--GEO_ID: fips code of the county
-
--state: state name
-
--county: county name
-
--sumObligated: Sum of the federal share of the Public Assistance grant eligible project amount in dollars, plus grantee (State) and sub-grantee (applicant) administrative costs between 2009-2018.
-
--n:numbers of the funded hurricane projects between 2009-2018
-
+-GEO_ID: fips code of the county  
+-state: state name  
+-county: county name  
+-sumObligated: Sum of the federal share of the Public Assistance grant eligible project amount in dollars, plus grantee (State) and sub-grantee (applicant) administrative costs between 2009-2018.  
+-n:numbers of the funded hurricane projects between 2009-2018  
 -incidentType: Type of incident:"Hurricane","Severe Storm(s)","Coastal Storm"
 
 ---------------------
 ## Plot with leaflet
-
-<h3>mapping of the funding amount for hurricane disasters</h3>
+mapping of the funding amount for hurricane disasters
 ```{r}
 #get the layer of US map from the ".json" file as xy
 #The data comes from JSON.
@@ -124,8 +121,6 @@ leaflet() %>%
             position = "bottomright", 
             title = paste0("Sum obligated amount(in thousands)<br>2009-2018")) 
 ```
-
-------
 ## mapping for the numbers of hurricanes funded projects
 ```{r}
 leaflet() %>%
@@ -156,3 +151,40 @@ leaflet() %>%
             title = paste0("Numbers of funded hurricane projects<br>2009-2018"))
 
 ```
+
+## Reference:
+[1]Garrett Grolemund, Hadley Wickham (2011). Dates and Times Made
+  Easy with lubridate. Journal of Statistical Software, 40(3),
+  1-25. URL http://www.jstatsoft.org/v40/i03/.   
+
+[2]Hadley Wickham (2019). stringr: Simple, Consistent Wrappers
+  for Common String Operations. R package version 1.4.0.
+  https://CRAN.R-project.org/package=stringr  
+  
+[3]Hadley Wickham, Romain François, Lionel Henry and Kirill
+  Müller (2020). dplyr: A Grammar of Data Manipulation. R
+  package version 1.0.2.
+  https://CRAN.R-project.org/package=dplyr
+  
+[4]Stefan Milton Bache and Hadley Wickham (2014). magrittr: A
+  Forward-Pipe Operator for R. R package version 1.5.
+  https://CRAN.R-project.org/package=magrittr
+  
+[5]Kyle Walker (2020). tigris: Load Census TIGER/Line Shapefiles.
+  R package version 1.0.
+  https://CRAN.R-project.org/package=tigris
+  
+[6]Roger Bivand, Tim Keitt and Barry Rowlingson (2020). rgdal:
+  Bindings for the 'Geospatial' Data Abstraction Library. R
+  package version 1.5-18.
+  https://CRAN.R-project.org/package=rgdal
+  
+[7]Scott Chamberlain and Andy Teucher (2020). geojsonio: Convert
+  Data from and to 'GeoJSON' or 'TopoJSON'. R package version
+  0.9.2. https://CRAN.R-project.org/package=geojsonio
+  
+[8]Joe Cheng, Bhaskar Karambelkar and Yihui Xie (2019). leaflet:
+  Create Interactive Web Maps with the JavaScript 'Leaflet'
+  Library. R package version 2.0.3.
+  https://CRAN.R-project.org/package=leaflet
+  
